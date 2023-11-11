@@ -57,8 +57,12 @@
 <body>
     <div id="view">
         <div id="tela">
-            <canvas id="canvas" width="11" height="11"></canvas>
+            <canvas id="canvas" width="2" height="11"></canvas>
         </div>
+
+        <output id="resutados">
+
+		</output>
 
         <div id="reset" class="rst">
             <button>reset</button>
@@ -66,11 +70,13 @@
 
         <div id="controle">
             <button onclick="moveLeft()"><</button>
-                    <button onclick="moveRight()">></button>
+            <button onclick="moveRight()">></button>
         </div>
     </div>
 
-    <script>
+    <script src="./js/scripts.js"></script>
+
+<script>
         const c = document.querySelector('div canvas')
         const ctx = c.getContext('2d')
 
@@ -79,11 +85,9 @@
 
         person = {
             color: 'blue',
-            x:  Math.floor(Math.random() * wView),
+            x: Math.floor(Math.random() * wView),
             y: 10,
-            alg() {
-                return [[person.x - 1, person.y - 1], [person.x, person.y - 1], [person.x + 1, person.y - 1]]
-            },
+            points: 0,
             draw() {
                 ctx.clearRect(0, 0, wView, hView)
 
@@ -148,6 +152,14 @@
             observer('right')
         }
 
+        function subtractionPoints() {
+			person.points -= 1
+		}
+
+		function gain() {
+			person.points += 1
+		}
+
         const obj = {
             'color': 'red',
             random() { return Math.floor(Math.random() * wView) },
@@ -177,7 +189,9 @@
                     ctx.fillRect(obj.x, obj.y, 1, 1)
             },
             colision() {
-                if (Math.abs(person.x - obj.x) < 1 && Math.abs(person.y - obj.y) < 1) {
+                if (Math.abs(person.x - obj.x) < .1 && Math.abs(person.y - obj.y) < .1) {
+                    subtractionPoints()
+                    
                     reset.classList.remove('rst')
 
                     obj.gravidade = 0
@@ -196,13 +210,123 @@
             },
         }
 
+        //Rede
+        network = {
+            color: person.color,
+            x: person.x,
+            y: person.x,
+            alg: [[person.x - 1, person.y], [person.x, person.y], [person.x + 1, person.y]],
+            bin: [0, 0, 0],
+            input: 0,
+            output: ()=>{return senoidal(network.input)},
+            toBin() {
+                num = 0
+
+                for (let i = 0; i < network.bin.length; i++) {
+                    num += network.bin[i] * Math.pow(2, (network.bin.length - 1) - i)
+                }
+
+                network.bin = [0, 0, 0]
+
+                input = num
+                return num
+            },
+            detect() {
+                if (Math.abs(network.alg[0][0] - obj.x) == 0 && Math.abs(network.alg[0][1] - obj.y) < hView+1) {
+                    network.bin[0] += 1
+
+                    network.input = network.toBin()
+                    
+                    network.actions()
+                    // console.log('Binário:', network.input)
+                }
+                else if (Math.abs(network.alg[1][0] - obj.x) == 0 && Math.abs(network.alg[1][1] - obj.y) < hView+1) {
+                    network.bin[1] += 1
+                    
+                    network.input = network.toBin()
+                    
+                    network.actions()
+                }
+                else if (Math.abs(network.alg[2][0] - obj.x) == 0 && Math.abs(network.alg[2][1] - obj.y) < hView+1) {
+                    network.bin[2] += 1
+                    
+                    network.input = network.toBin()
+                    
+                    network.actions()
+                }
+                else if (Math.abs(obj.y - person.y - 1) < .1) {
+                    // console.log('Binário:')
+                    network.toBin()
+                }
+                
+            },
+            actions(){
+                if(network.output() == 1){
+                    // console.log('atacar');
+                    network.update()
+                    network.draw()
+                    
+                }
+            },
+            gravidade: .0025,
+            velocity: 0,
+            update() {
+                network.velocity -= network.gravidade
+                network.y += network.velocity
+            },
+            reset() {
+                reset = document.getElementById("reset")
+
+                if (network.y < 0) {
+                    
+                    network.velocity = 0
+                    network.y = person.y
+
+                    network.x = person.x
+
+                }
+            },
+            draw() {
+                ctx.fillStyle = network.color,
+                ctx.fillRect(network.x, network.y, 1, 1)
+            },
+            colision() {
+                if (Math.abs(obj.x - network.x) < 1 && Math.abs(obj.y - network.y) < 1) {
+                    // reset.classList.remove('rst')
+                    gain()
+                    
+                    obj.gravidade = 0
+                    obj.y = 0
+                    obj.velocity = 0
+                    
+                    obj.gravidade = .0025
+                    
+                    obj.velocity = 0
+                    obj.y = 0
+
+                    obj.x = obj.random()
+                }
+            },
+        }
+        
+        //fim
+
+        const resuts = document.getElementById('resutados')
+
         function loop() {
             person.draw()
-
+            
+            obj.update()
             obj.draw()
             obj.reset()
-	        obj.update()
-	        obj.colision()
+            obj.colision()
+            
+            network.x = person.x
+            network.detect()
+            network.reset()
+            network.colision()
+
+            resuts.innerHTML = `Pontuação: ${person.points}`
 
             requestAnimationFrame(loop)
         }
